@@ -167,6 +167,36 @@ unindented,csv,row
     ]
 
 
+def test_nested_functions_inside_methods_are_not_collected(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path / "account" / "tests" / "test_nested.py",
+        '''
+class TestNestedFunctions:
+    def helper(self):
+        def test_inner():
+            pass
+
+    def test_outer(self):
+        pass
+''',
+    )
+
+    result = discover_paths(
+        [tmp_path],
+        root=tmp_path,
+        python_files=["test_*.py"],
+        python_classes=["Test*"],
+        python_functions=["test_*"],
+        norecursedirs=[],
+    )
+
+    assert result.nodeids == [
+        "account/tests/test_nested.py::TestNestedFunctions::test_outer",
+    ]
+
+
 def test_fast_discover_collect_only_prints_nodeids(pytester: pytest.Pytester) -> None:
     pytester.makepyprojecttoml(
         """
@@ -232,6 +262,26 @@ def test_fast_discover_runs_tests_with_pytest(pytester: pytest.Pytester) -> None
     assert result.ret == 0
     result.stdout.fnmatch_lines(["..*", "2 passed in *s"])
     result.stderr.fnmatch_lines(["fast-discovery: 2 tests from 1 files in *s"])
+
+
+def test_fast_discover_with_xdist_prints_one_summary(
+    pytester: pytest.Pytester,
+) -> None:
+    pytest.importorskip("xdist")
+    pytester.makepyfile(
+        test_sample="""
+        def test_one():
+            assert True
+
+        def test_two():
+            assert True
+        """,
+    )
+
+    result = pytester.runpytest("--fast-discover", "-q", "-n", "2")
+
+    assert result.ret == 0
+    assert result.stderr.str().count("fast-discovery:") == 1
 
 
 def test_fast_discover_run_mode_preserves_explicit_nodeid(

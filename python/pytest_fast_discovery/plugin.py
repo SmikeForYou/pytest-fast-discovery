@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from time import perf_counter
@@ -55,7 +56,8 @@ def pytest_cmdline_main(config: Config) -> ExitCode | None:
         return ExitCode.OK
 
     runtime_args = _runtime_args(config, result)
-    _write_summary(result, duration)
+    if not _is_xdist_worker(config):
+        _write_summary(result, duration)
 
     if not runtime_args:
         return ExitCode.NO_TESTS_COLLECTED
@@ -90,6 +92,13 @@ def _write_summary(result: DiscoveryResult, duration: float) -> None:
     sys.stderr.write(
         f"fast-discovery: {len(result.nodeids)} tests from "
         f"{result.files_seen} files in {duration:.2f}s\n",
+    )
+
+
+def _is_xdist_worker(config: Config) -> bool:
+    return hasattr(config, "workerinput") or os.environ.get("PYTEST_XDIST_WORKER", "") not in (
+        "",
+        "master",
     )
 
 

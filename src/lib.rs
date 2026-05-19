@@ -124,6 +124,7 @@ fn scan_file(
     let mut module_functions = Vec::new();
     let mut classes = Vec::new();
     let mut class_stack: Vec<usize> = Vec::new();
+    let mut function_stack: Vec<usize> = Vec::new();
     let mut pending_class: Option<(String, usize)> = None;
     let mut in_triple_single = false;
     let mut in_triple_double = false;
@@ -138,6 +139,24 @@ fn scan_file(
         }
 
         let indent = line.len() - trimmed.len();
+        let structural_line = !trimmed.starts_with('@') && !trimmed.starts_with('#');
+
+        if structural_line {
+            while function_stack
+                .last()
+                .is_some_and(|function_indent| indent <= *function_indent)
+            {
+                function_stack.pop();
+            }
+        }
+
+        let inside_function = function_stack
+            .last()
+            .is_some_and(|function_indent| indent > *function_indent);
+
+        if inside_function {
+            continue;
+        }
 
         if let Some((signature, class_indent)) = pending_class.take() {
             let signature = format!("{signature} {trimmed}");
@@ -160,13 +179,13 @@ fn scan_file(
             continue;
         }
 
-        while class_stack
-            .last()
-            .is_some_and(|index| indent <= classes[*index].indent)
-            && !trimmed.starts_with('@')
-            && !trimmed.starts_with('#')
-        {
-            class_stack.pop();
+        if structural_line {
+            while class_stack
+                .last()
+                .is_some_and(|index| indent <= classes[*index].indent)
+            {
+                class_stack.pop();
+            }
         }
 
         if trimmed.starts_with("class ") && !trimmed.contains(':') {
@@ -196,19 +215,19 @@ fn scan_file(
             continue;
         };
 
-        if !matches_any(&name, python_functions) {
-            continue;
+        if matches_any(&name, python_functions) {
+            match class_stack.last().copied() {
+                Some(index) if indent > classes[index].indent => {
+                    classes[index].methods.push(name);
+                }
+                None if indent == 0 => {
+                    module_functions.push(name);
+                }
+                _ => {}
+            }
         }
 
-        match class_stack.last().copied() {
-            Some(index) if indent > classes[index].indent => {
-                classes[index].methods.push(name);
-            }
-            None if indent == 0 => {
-                module_functions.push(name);
-            }
-            _ => {}
-        }
+        function_stack.push(indent);
     }
 
     let mut nodeids = module_functions
