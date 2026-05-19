@@ -1,0 +1,23 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pytest-fast-discovery"
+version = "0.1.0"
+description = "Rust-backed pytest test discovery for large Django projects"
+requires-python = ">=3.13"
+dependencies = ["pytest>=9.0.1"]
+authors = [{ name = "Global Citizen" }]
+license = { text = "Proprietary" }
+
+[project.entry-points.pytest11]
+fast_discovery = "pytest_fast_discovery.plugin"
+
+[tool.maturin]
+module-name = "pytest_fast_discovery._native"
+python-source = "python"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

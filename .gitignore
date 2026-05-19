@@ -1,0 +1,7 @@
+/target/
+/.env/
+/.venv/
+/.pytest_cache/
+__pycache__/
+*.py[cod]
+*.so
